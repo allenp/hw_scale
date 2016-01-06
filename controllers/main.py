@@ -29,7 +29,7 @@ class ScaleThread(Thread):
       if not self.is_alive():
         if not self.isDaemon():
           self.daemon = True
-        self.start()
+          self.start()
 
   def get_weight():
     self.lockedstart()
