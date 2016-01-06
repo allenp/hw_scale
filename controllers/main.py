@@ -40,7 +40,10 @@ class ScaleThread(Thread):
   def run(self):
     while True:
       with self.scalelock:
-        if not self.scale.connect():
+        if self.scale.connect():
+          self.weigh()
+          time.sleep(0.3)
+        else:
             time.sleep(5)
 
   @property
