@@ -12,7 +12,7 @@ from openerp.tools.translate import _
 
 _logger = logging.getLogger(__name__)
 
-usb_scale = Scale()
+usb_scale = Scale(0x0922, 0x8003)
 hw_proxy.drivers['scale'] = usb_scale
 
 class ScaleDriver(hw_proxy.Proxy):

@@ -46,7 +46,7 @@ class ScaleManager(object):
         """
         Finds the closest matching device available.
         Returns None if no devices are available.
-        
+
         If no arguments are passed, it finds the
         first device that has " Scale" in its model
         name as returned by `get_model`.
@@ -83,7 +83,7 @@ class ScaleManager(object):
         dictionary set at ScaleManager's instantiation and returns
         the value assigned to the "name" key in the associated
         dictionary.
-        
+
         Returns a generic string with the property value if there
         is no key corresponding to the idVendor property in the
         `lookup` dictionary or if there is no key corresponding
