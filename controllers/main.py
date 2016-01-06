@@ -39,13 +39,14 @@ class ScaleThread(Thread):
 
   def run(self):
     while True:
-      if self.scale:
+      if not self.__scale:
+        self.__scale = Scale(0x0922, 0x8003)
+      else:
         with self.scalelock:
           if self.scale.connect():
             self.weigh()
             time.sleep(0.3)
           else:
-            self.__scale = Scale(0x0922, 0x8003)
             time.sleep(5)
 
   @property
