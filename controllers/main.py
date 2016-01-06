@@ -22,54 +22,57 @@ class ScaleThread(Thread):
     self.lock = Lock()
     self.scalelock = Lock()
     self.__scale = None
+    self.__lastreading = None
 
   def lockedstart(self):
     with self.lock:
       if not self.is_alive():
-        self.daemon = True
+        if not self.isDaemon():
+          self.daemon = True
         self.start()
 
-  def weigh(self):
+  def get_weight():
     self.lockedstart()
+    return self.__lastreading
+
+  def read_weight():
     with self.scalelock:
-      return self.scale.weigh()
+      self.__lastreading = self.scale.weigh()
 
   def get_status(self):
     self.lockedstart()
-    with self.scalelock:
-      if self.scale:
-        return self.scale.get_status()
-      else:
-        return { 'status': 'connecting', 'messages': [] }
+    if self.scale:
+      return self.scale.get_status()
+    else:
+      return { 'status': 'connecting', 'messages': [] }
 
   def run(self):
     self.__scale = None
-
     while True:
-      if not self.scale:
-        with self.scalelock:
-          self.__scale = Scale(0x0922, 0x8003)
-      else:
+      if self.scale:
         if self.scale.connect():
-          self.weigh()
+          self.read_weight()
           time.sleep(0.3)
         else:
           time.sleep(5)
+      else:
+        with self.scalelock:
+          self.__scale = Scale(0x0922, 0x8003)
 
   @property
   def scale(self):
     return self.__scale
 
-usb_scale = ScaleThread()
-hw_proxy.drivers['scale'] = usb_scale
+driver = ScaleThread()
+hw_proxy.drivers['scale'] = driver
 
 class ScaleDriver(hw_proxy.Proxy):
     @http.route('/hw_proxy/scale_read/', type='json', auth='none', cors='*')
     def scale_read(self):
-        if usb_scale:
-          reading = usb_scale.weigh()
-          return { 'weight': reading.weight, 'unit': reading.unit, 'info': reading.status }
-        return None
+      reading = self.get_weight()
+      if reading:
+        return { 'weight': reading.weight, 'unit': reading.unit, 'info': reading.status }
+      return None
 
     @http.route('/hw_proxy/scale_zero/', type='json', auth='none', cors='*')
     def scale_zero(self):
