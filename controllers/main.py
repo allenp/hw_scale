@@ -35,7 +35,7 @@ class ScaleThread(Thread):
 
   def get_status(self):
     self.lockedstart()
-    return self.scale.status
+    return self.scale.get_status()
 
   def run(self):
     while True:
