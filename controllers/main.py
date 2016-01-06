@@ -9,10 +9,45 @@ from openerp import http
 from openerp.http import request
 from openerp.tools.translate import _
 
+from threading import Thread, Lock
+
 
 _logger = logging.getLogger(__name__)
 
-usb_scale = Scale(0x0922, 0x8003)
+
+class ScaleThread(Thread):
+
+  def __init__(self):
+    Thread.__init__(self)
+    self.lock = Lock()
+    self.scalelock = Lock()
+    self.__scale = Scale(0x0922, 0x8003)
+
+  def lockedstart(self):
+    with self.lock:
+      if not self.isAlive():
+        self.daemon = True
+        self.start()
+
+  def weigh(self):
+    self.lockedstart()
+    return self.scale.weigh()
+
+  def get_status(self):
+    self.lockedstart()
+    return self.scale.status
+
+  def run(self):
+    while True:
+      with self.scalelock:
+        if not self.scale.connect():
+            time.sleep(5)
+
+  @property
+  def scale(self):
+    return self.__scale
+
+usb_scale = ScaleThread()
 hw_proxy.drivers['scale'] = usb_scale
 
 class ScaleDriver(hw_proxy.Proxy):
