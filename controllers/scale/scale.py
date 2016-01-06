@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # vim: set fileencoding=utf-8 :
+import logging
 import usb.util
 from collections import namedtuple
 from scale_manager import ScaleManager
@@ -8,6 +9,8 @@ from reports import \
         ReportFactory, STATUSES, ZERO_WEIGHT, STABLE_WEIGHT, DATA_REPORT
 
 ScaleReading = namedtuple("ScaleReading", ["weight", "unit"])
+
+_logger = logging.getLogger(__name__)
 
 class ConnectionError(Exception):
     pass
@@ -69,6 +72,8 @@ class Scale(object):
         # Initialize the USB connection to the scale.
         if self.device:
             self.connect()
+        else:
+          _logger.error('No scale device found.')
 
     ### Read-only public properties ###
 
