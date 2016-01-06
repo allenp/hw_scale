@@ -57,7 +57,7 @@ class ScaleThread(Thread):
           time.sleep(5)
       else:
         with self.scalelock:
-          self.__scale = Scale(manufacturer='0x0922', device='0x8003')
+          self.__scale = Scale(manufacturer='0x0922', model='0x8003')
 
   @property
   def scale(self):
