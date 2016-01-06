@@ -31,23 +31,27 @@ class ScaleThread(Thread):
 
   def weigh(self):
     self.lockedstart()
-    return self.scale.weigh()
+    with self.scalelock:
+      return self.scale.weigh()
 
   def get_status(self):
     self.lockedstart()
-    return self.scale.get_status()
+    with self.scalelock:
+      return self.scale.get_status()
 
   def run(self):
+    self.__scale = None
+
     while True:
-      if not self.__scale:
-        self.__scale = Scale(0x0922, 0x8003)
-      else:
+      if not self.scale:
         with self.scalelock:
-          if self.scale.connect():
-            self.weigh()
-            time.sleep(0.3)
-          else:
-            time.sleep(5)
+          self.__scale = Scale(0x0922, 0x8003)
+      else:
+        if self.scale.connect():
+          self.weigh()
+          time.sleep(0.3)
+        else:
+          time.sleep(5)
 
   @property
   def scale(self):
