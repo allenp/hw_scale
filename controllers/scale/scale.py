@@ -18,13 +18,13 @@ class Scale(object):
     def __init__(self, device=None, manufacturer=None, model=None, device_manager=None):
         """
         Instantiates a Scale object.
-        
+
         If no arguments are passed, it wraps itself around whatever device
         calling `device_manager.find` returns and automatically fills in
         its `manufacturer` and `model` properties according to what
         `device_manager.get_manufacturer` and `device_manager.get_model`
         return, respectively.
-        
+
         If a `device` argument is passed, the Scale object wraps it and
         treats it like a PyUSB device.
 
@@ -32,11 +32,11 @@ class Scale(object):
         are omitted, the Scale object will query the `device_manager` object
         to discover and populate the Scale's `manufacturer` and `model`
         properties.
-        
+
         If `manufacturer`, and/or `model` are passed and `device` is omitted,
         Scale will wrap the device returned when those arguments are passed
         to `device_manager.find`.
-        
+
         If `manufacturer`, and/or `model`, and `device` are all passed,
         then the Scale object wraps `device` and sets its own `manufacturer`,
         `model`, and `name` properties accordingly, regardless of `device`'s
@@ -63,11 +63,12 @@ class Scale(object):
         self._manager = device_manager
         self._endpoint = None
         self._last_reading = None
+        self.__status = { 'status' : 'connecting', 'messages' : [] }
+        self.__weight_info = 'ok'
 
         # Initialize the USB connection to the scale.
         if self.device:
             self.connect()
-    
 
     ### Read-only public properties ###
 
@@ -90,7 +91,7 @@ class Scale(object):
     @property
     def manager(self):
         return self._manager
-    
+
     ### Public methods ###
 
     def connect(self):
@@ -99,13 +100,16 @@ class Scale(object):
             return False
 
         self._reattach = False
-        
+
         try:
             if self.device.is_kernel_driver_active(0):
                 self._reattach = True
                 self.device.detach_kernel_driver(0)
+            self.set_status('connected', 'Connected to ' + self.name)
         except NotImplementedError:
-            pass # libusb-win32 does not implement `is_kernel_driver_active`
+          self.set_status('error', str(e))
+          return False
+            #pass  libusb-win32 does not implement `is_kernel_driver_active`
 
         self.device.set_configuration()
 
@@ -131,7 +135,7 @@ class Scale(object):
         """Reads from the scale until a stable weight is found"""
         weighed = False
         attempts = 0
-        
+
         while not weighed and attempts < max_attempts:
             attempts += 1
             report = self.read(endpoint=endpoint)
@@ -178,6 +182,30 @@ class Scale(object):
             raise error
 
         return ReportFactory.build(data)
+
+    def get_status(self):
+      return self.__status
+
+    def set_status(self, status, message = None):
+      if status == self.__status['status']:
+        if message is not None and message != self.__status['messages'][-1]:
+          self.__status['messages'].append(message)
+
+          if status == 'error' and message:
+            _logger.error('Scale Error: '+message)
+          elif __status == 'disconnected' and message:
+            _logger.warning('Disconnected Scale: '+message)
+        else:
+          self.__status['status'] = status
+          if message:
+            self.__status['messages'] = [message]
+          else:
+            self.__status['messages'] = []
+
+          if status == 'error' and message:
+            _logger.error('Scale Error: '+message)
+          elif status == 'disconnected' and message:
+            _logger.warning('Disconnected Scale: %s', message)
 
 
     ### Private methods ###

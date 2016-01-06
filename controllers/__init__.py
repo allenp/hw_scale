@@ -1,2 +1,1 @@
-import scale
 import main
