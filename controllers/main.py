@@ -21,7 +21,6 @@ class ScaleThread(Thread):
     Thread.__init__(self)
     self.lock = Lock()
     self.scalelock = Lock()
-    self.__scale = Scale(0x0922, 0x8003)
 
   def lockedstart(self):
     with self.lock:
@@ -37,7 +36,10 @@ class ScaleThread(Thread):
   def get_status(self):
     self.lockedstart()
     with self.scalelock:
-      return self.scale.get_status()
+      if self.scale:
+        return self.scale.get_status()
+      else:
+        return { 'status': 'connecting', 'messages': [] }
 
   def run(self):
     self.__scale = None
