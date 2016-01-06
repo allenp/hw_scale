@@ -48,7 +48,7 @@ class ScaleThread(Thread):
     while True:
       if not self.scale:
         with self.scalelock:
-          self.__scale = Scale(0x0922, 0x8003)
+          self.__scale = Scale(manufacturer='0x0922', device='0x8003')
       else:
         if self.scale.connect():
           self.weigh()
