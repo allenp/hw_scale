@@ -21,6 +21,7 @@ class ScaleThread(Thread):
     Thread.__init__(self)
     self.lock = Lock()
     self.scalelock = Lock()
+    self.__scale = None
 
   def lockedstart(self):
     with self.lock:
