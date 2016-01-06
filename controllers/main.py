@@ -21,7 +21,7 @@ class ScaleThread(Thread):
     Thread.__init__(self)
     self.lock = Lock()
     self.scalelock = Lock()
-    self.__scale = Scale(0x0922, 0x8003)
+    self.__scale = None
 
   def lockedstart(self):
     with self.lock:
@@ -39,11 +39,13 @@ class ScaleThread(Thread):
 
   def run(self):
     while True:
-      with self.scalelock:
-        if self.scale.connect():
-          self.weigh()
-          time.sleep(0.3)
-        else:
+      if self.scale:
+        with self.scalelock:
+          if self.scale.connect():
+            self.weigh()
+            time.sleep(0.3)
+          else:
+            self.__scale = Scale(0x0922, 0x8003)
             time.sleep(5)
 
   @property
