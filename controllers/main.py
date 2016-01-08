@@ -48,8 +48,10 @@ class ScaleThread(Thread):
 
   def run(self):
     self.__scale = None
+    _logger.error("This is beginning of the run function")
     while True:
       if self.scale:
+        _logger.error("We have a scale that's not connected.")
         if self.scale.connect():
           self.read_weight()
           time.sleep(0.3)
@@ -57,6 +59,7 @@ class ScaleThread(Thread):
           time.sleep(5)
       else:
         with self.scalelock:
+          _logger.error("We have no scale.")
           #self.__scale = Scale(manufacturer=0x0922, model=0x8003)
           self.__scale = Scale(manufacturer='Dymo-CoStar Corp.')
 
