@@ -45,27 +45,27 @@ class ScaleThread(Thread):
       return self.scale.get_status()
     else:
       return { 'status': 'connecting', 'messages': [] }
+  @property
+  def scale(self):
+    return self.__scale
 
   def run(self):
+
     self.__scale = None
-    _logger.error("This is beginning of the run function")
+
     while True:
       if self.scale:
         _logger.error("We have a scale that's not connected.")
         if self.scale.connect():
+          _logger.error("Scale is connected. About to read.")
           self.read_weight()
           time.sleep(0.3)
         else:
           time.sleep(5)
       else:
         with self.scalelock:
-          _logger.error("We have no scale.")
-          #self.__scale = Scale(manufacturer=0x0922, model=0x8003)
+          _logger.error("Scale not yet initialised.")
           self.__scale = Scale(manufacturer='Dymo-CoStar Corp.')
-
-  @property
-  def scale(self):
-    return self.__scale
 
 driver = ScaleThread()
 hw_proxy.drivers['scale'] = driver

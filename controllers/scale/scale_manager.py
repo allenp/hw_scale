@@ -60,6 +60,7 @@ class ScaleManager(object):
 
     # Returns none if no devices are available.
     if not devices:
+      _logger.error("Found no devices")
       return None
 
     # If no arguments are passed, returns the first
