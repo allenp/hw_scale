@@ -72,7 +72,7 @@ class Scale(object):
         # Initialize the USB connection to the scale.
         if self.device:
           _logger.error("device found.")
-            self.connect()
+          self.connect()
         else:
           _logger.error('No scale device found.')
 
