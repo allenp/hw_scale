@@ -55,19 +55,19 @@ class ScaleDriver(Thread):
 
           return False
 
-    scales = usb.core.find(find_all=True, custom_match=FindUsbClass(3))
+      scales = usb.core.find(find_all=True, custom_match=FindUsbClass(3))
 
-    if not scales:
-      scales = usb.core.find(find_all=True, idVendor=0x0922)
+      if not scales:
+        scales = usb.core.find(find_all=True, idVendor=0x0922)
 
-    for scale in scales:
-      connected.append({
-        'vendor' : scale.idVendor,
-        'product' : scale.idProduct,
-        'name' : "%s %s" % usb.util.get_string(scale, 256, scale.iManufacturer) + " " +usb.util.get_string(scale, 256, scale.iProduct)
-        })
+      for scale in scales:
+        connected.append({
+          'vendor' : scale.idVendor,
+          'product' : scale.idProduct,
+          'name' : "%s %s" % usb.util.get_string(scale, 256, scale.iManufacturer) + " " +usb.util.get_string(scale, 256, scale.iProduct)
+          })
 
-    return connected
+      return connected
 
     def lockedstart(self):
       with self.lock:
