@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
-
-from scale.scale import Scale
+import traceback
 
 import openerp
 import openerp.addons.hw_proxy.controllers.main as hw_proxy
@@ -9,74 +8,146 @@ from openerp import http
 from openerp.http import request
 from openerp.tools.translate import _
 
-from threading import Thread, Lock
+try:
+  from .. scale import *
+  from .. scale.scale import Scale
+except ImportError:
+  scalepos = scale = None
 
+from threading import Thread, Lock
+from Queue import Queue, Empty
+
+try:
+  import usb.core
+except ImportError:
+  usb = None
 
 _logger = logging.getLogger(__name__)
 
-
-class ScaleThread(Thread):
+class ScaleDriver(Thread):
 
   def __init__(self):
+
     Thread.__init__(self)
+
+    self.queue = Queue()
     self.lock = Lock()
-    self.scalelock = Lock()
-    self.__scale = None
-    self.__lastreading = None
+    self.tare = 0
+    self.lastreading = None
+    self.status = { 'status' : 'connecting', 'messages' : [] }
 
-  def lockedstart(self):
-    with self.lock:
-      if not self.is_alive():
-        if not self.isDaemon():
+    def connected_usb_devices(self):
+      connected = []
+
+      class FindUsbClass(object):
+        def __init__(self, usb_class):
+          self._class = usb_class
+
+        def __call(self, device):
+          if device.bDeviceClass == self._class:
+            return True
+
+          for cfg in devices:
+            inft = usb.util.find_descriptor(cfg, bInterfaceClass=self._class)
+
+            if intf is not None:
+              return True
+
+          return False
+
+    scales = usb.core.find(find_all=True, custom_match=FindUsbClass(3))
+
+    if not scales:
+      scales = usb.core.find(find_all=True, idVendor=0x0922)
+
+    for scale in scales:
+      connected.append({
+        'vendor' : scale.idVendor,
+        'product' : scale.idProduct,
+        'name' : "%s %s" % usb.util.get_string(scale, 256, scale.iManufacturer) + " " +usb.util.get_string(scale, 256, scale.iProduct)
+        })
+
+    return connected
+
+    def lockedstart(self):
+      with self.lock:
+        if not self.isAlive():
           self.daemon = True
-        self.start()
+          self.start()
 
-  def get_weight():
-    self.lockedstart()
-    return self.__lastreading
-
-  def read_weight():
-    with self.scalelock:
-      self.__lastreading = self.scale.weigh()
-
-  def get_status(self):
-    self.lockedstart()
-    if self.scale:
-      return self.scale.get_status()
-    else:
-      return { 'status': 'connecting', 'messages': [] }
-  @property
-  def scale(self):
-    return self.__scale
-
-  def run(self):
-
-    self.__scale = None
-
-    while True:
-      if self.scale:
-        _logger.error("We have a scale that's not connected.")
-        if self.scale.connect():
-          _logger.error("Scale is connected. About to read.")
-          self.read_weight()
-          time.sleep(0.3)
-        else:
-          time.sleep(5)
+    def get_scale(self):
+      scales = self.connected_usb_devices()
+      if len(scales) > 0:
+        self.set_status('connected', 'Connected to ' + scales[0]['name'])
+        return Scale(None, scales[0]['vendor'], scales[0]['product'])
       else:
-        with self.scalelock:
-          _logger.error("Scale not yet initialised.")
-          self.__scale = Scale(manufacturer='Dymo-CoStar Corp.')
+        self.set_status('disconnected', 'Scale not found')
+        return None
 
-driver = ScaleThread()
+    def get_status(self):
+      return self.status
+
+    def set_tare(self):
+      if self.lastreading is not None:
+        self.tare = self.lastreading.weight
+
+    def clear_tare(self):
+      self.tare = 0
+
+    def set_status(self, status, message = None):
+      _logger.info(status+ ' : ' + (message or 'no message'))
+      if status == self.status['status']:
+        if message != None and (len(self.status['messages']) == 0 or message != self.status['messages'][-1]):
+            self.status['messages'].append(message)
+      else:
+        self.status['status'] = status
+        if message:
+          self.status['messages'] = [message]
+        else:
+          self.status['messages'] = []
+
+      if status == 'error' and message:
+        _logger.error('Scale Error: ' + message)
+      elif status == 'disconnected' and message:
+        _logger.warning('Scale Device Disconnected: ' + message)
+
+    def run(self):
+
+      scalepos = None
+
+      if not scale: #scale refers to the module here
+        _logger.error('Scale not initialized, please verify system dependencies.')
+        return
+
+      while True:
+        try:
+          error = True
+          scalepos = self.get_scale()
+
+          if scalepos == None:
+            error = False
+            time.sleep(5)
+            continue
+
+          self.weight = scalepos.weigh()
+
+          error = False
+
+        except Exception as e:
+          self.set_status('error', str(e))
+          errmsg = str(e) + '\n' + '-'*60 + '\n' + traceback.format_exc() + '-'*60 + '\n'
+          _logger.error(errmsg)
+
+dirver = ScaleDriver()
 hw_proxy.drivers['scale'] = driver
 
-class ScaleDriver(hw_proxy.Proxy):
+class ScaleProxy(hw_proxy.Proxy):
     @http.route('/hw_proxy/scale_read/', type='json', auth='none', cors='*')
     def scale_read(self):
-      reading = self.get_weight()
-      if reading:
-        return { 'weight': reading.weight, 'unit': reading.unit, 'info': reading.status }
-      return None
+        if driver:
+          reading = driver.weigh()
+          return { 'weight': reading.weight - driver.tare, 'unit': reading.unit, 'info': reading.status }
+        return None
 
     @http.route('/hw_proxy/scale_zero/', type='json', auth='none', cors='*')
     def scale_zero(self):
@@ -84,9 +155,13 @@ class ScaleDriver(hw_proxy.Proxy):
 
     @http.route('/hw_proxy/scale_tare/', type='json', auth='none', cors='*')
     def scale_tare(self):
+      if driver:
+        driver.set_tare()
         return True
 
     @http.route('/hw_proxy/scale_clear_tare/', type='json', auth='none', cors='*')
     def scale_clear_tare(self):
+      if driver:
+        driver.clear_tare()
         return True
 

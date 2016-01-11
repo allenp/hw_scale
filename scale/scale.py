@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # vim: set fileencoding=utf-8 :
-import logging
 import usb.util
 from collections import namedtuple
 from scale_manager import ScaleManager
@@ -9,8 +8,6 @@ from reports import \
         ReportFactory, STATUSES, ZERO_WEIGHT, STABLE_WEIGHT, DATA_REPORT
 
 ScaleReading = namedtuple("ScaleReading", ["weight", "unit"])
-
-_logger = logging.getLogger(__name__)
 
 class ConnectionError(Exception):
     pass
@@ -66,15 +63,11 @@ class Scale(object):
         self._manager = device_manager
         self._endpoint = None
         self._last_reading = None
-        self.__status = { 'status' : 'connecting', 'messages' : [] }
-        self.__weight_info = 'ok'
 
         # Initialize the USB connection to the scale.
         if self.device:
-          _logger.error("device found.")
-          self.connect()
-        else:
-          _logger.error('No scale device found.')
+            self.connect()
+
 
     ### Read-only public properties ###
 
@@ -111,11 +104,8 @@ class Scale(object):
             if self.device.is_kernel_driver_active(0):
                 self._reattach = True
                 self.device.detach_kernel_driver(0)
-            self.set_status('connected', 'Connected to ' + self.name)
         except NotImplementedError:
-          self.set_status('error', str(e))
-          return False
-            #pass  libusb-win32 does not implement `is_kernel_driver_active`
+            pass # libusb-win32 does not implement `is_kernel_driver_active`
 
         self.device.set_configuration()
 
@@ -188,30 +178,6 @@ class Scale(object):
             raise error
 
         return ReportFactory.build(data)
-
-    def get_status(self):
-      return self.__status
-
-    def set_status(self, status, message = None):
-      if status == self.__status['status']:
-        if message is not None and message != self.__status['messages'][-1]:
-          self.__status['messages'].append(message)
-
-          if status == 'error' and message:
-            _logger.error('Scale Error: '+message)
-          elif __status == 'disconnected' and message:
-            _logger.warning('Disconnected Scale: '+message)
-        else:
-          self.__status['status'] = status
-          if message:
-            self.__status['messages'] = [message]
-          else:
-            self.__status['messages'] = []
-
-          if status == 'error' and message:
-            _logger.error('Scale Error: '+message)
-          elif status == 'disconnected' and message:
-            _logger.warning('Disconnected Scale: %s', message)
 
 
     ### Private methods ###

@@ -11836,7 +11836,6 @@ USB_IDS = {
         0x0009: "LabelWriter 310",
         0x001a: "LabelWriter 400 Turbo",
         0x0020: "LabelWriter 450",
-        0x8003: "M25-US"
     },
     0x0923: {
         "name": "IC Media Corp.",
