@@ -94,6 +94,10 @@ class ScaleDriver(Thread):
     def clear_tare(self):
       self.tare = 0
 
+    def get_weight(self):
+      self.lockedstart()
+      return self.lastreading
+
     def set_status(self, status, message = None):
       _logger.info(status+ ' : ' + (message or 'no message'))
       if status == self.status['status']:
@@ -129,7 +133,8 @@ class ScaleDriver(Thread):
             time.sleep(5)
             continue
 
-          self.weight = scalepos.weigh()
+          self.lastreading = scalepos.weigh()
+          time.sleep(0.5)
 
           error = False
 
@@ -138,14 +143,14 @@ class ScaleDriver(Thread):
           errmsg = str(e) + '\n' + '-'*60 + '\n' + traceback.format_exc() + '-'*60 + '\n'
           _logger.error(errmsg)
 
-dirver = ScaleDriver()
+driver = ScaleDriver()
 hw_proxy.drivers['scale'] = driver
 
 class ScaleProxy(hw_proxy.Proxy):
     @http.route('/hw_proxy/scale_read/', type='json', auth='none', cors='*')
     def scale_read(self):
         if driver:
-          reading = driver.weigh()
+          reading = driver.get_weight()
           return { 'weight': reading.weight - driver.tare, 'unit': reading.unit, 'info': reading.status }
         return None
 
