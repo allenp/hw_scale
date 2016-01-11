@@ -36,112 +36,112 @@ class ScaleDriver(Thread):
     self.lastreading = None
     self.status = { 'status' : 'connecting', 'messages' : [] }
 
-    def connected_usb_devices(self):
-      connected = []
+  def connected_usb_devices(self):
+    connected = []
 
-      class FindUsbClass(object):
-        def __init__(self, usb_class):
-          self._class = usb_class
+    class FindUsbClass(object):
+      def __init__(self, usb_class):
+        self._class = usb_class
 
-        def __call(self, device):
-          if device.bDeviceClass == self._class:
+      def __call(self, device):
+        if device.bDeviceClass == self._class:
+          return True
+
+        for cfg in devices:
+          inft = usb.util.find_descriptor(cfg, bInterfaceClass=self._class)
+
+          if intf is not None:
             return True
 
-          for cfg in devices:
-            inft = usb.util.find_descriptor(cfg, bInterfaceClass=self._class)
+        return False
 
-            if intf is not None:
-              return True
+    scales = usb.core.find(find_all=True, custom_match=FindUsbClass(3))
 
-          return False
+    if not scales:
+      scales = usb.core.find(find_all=True, idVendor=0x0922)
 
-      scales = usb.core.find(find_all=True, custom_match=FindUsbClass(3))
+    for scale in scales:
+      connected.append({
+        'vendor' : scale.idVendor,
+        'product' : scale.idProduct,
+        'name' : "%s %s" % usb.util.get_string(scale, 256, scale.iManufacturer) + " " +usb.util.get_string(scale, 256, scale.iProduct)
+        })
 
-      if not scales:
-        scales = usb.core.find(find_all=True, idVendor=0x0922)
+    return connected
 
-      for scale in scales:
-        connected.append({
-          'vendor' : scale.idVendor,
-          'product' : scale.idProduct,
-          'name' : "%s %s" % usb.util.get_string(scale, 256, scale.iManufacturer) + " " +usb.util.get_string(scale, 256, scale.iProduct)
-          })
+  def lockedstart(self):
+    with self.lock:
+      if not self.isAlive():
+        self.daemon = True
+        self.start()
 
-      return connected
+  def get_scale(self):
+    scales = self.connected_usb_devices()
+    if len(scales) > 0:
+      self.set_status('connected', 'Connected to ' + scales[0]['name'])
+      return Scale(None, scales[0]['vendor'], scales[0]['product'])
+    else:
+      self.set_status('disconnected', 'Scale not found')
+      return None
 
-    def lockedstart(self):
-      with self.lock:
-        if not self.isAlive():
-          self.daemon = True
-          self.start()
+  def get_status(self):
+    return self.status
 
-    def get_scale(self):
-      scales = self.connected_usb_devices()
-      if len(scales) > 0:
-        self.set_status('connected', 'Connected to ' + scales[0]['name'])
-        return Scale(None, scales[0]['vendor'], scales[0]['product'])
+  def set_tare(self):
+    if self.lastreading is not None:
+      self.tare = self.lastreading.weight
+
+  def clear_tare(self):
+    self.tare = 0
+
+  def get_weight(self):
+    self.lockedstart()
+    return self.lastreading
+
+  def set_status(self, status, message = None):
+    _logger.info(status+ ' : ' + (message or 'no message'))
+    if status == self.status['status']:
+      if message != None and (len(self.status['messages']) == 0 or message != self.status['messages'][-1]):
+          self.status['messages'].append(message)
+    else:
+      self.status['status'] = status
+      if message:
+        self.status['messages'] = [message]
       else:
-        self.set_status('disconnected', 'Scale not found')
-        return None
+        self.status['messages'] = []
 
-    def get_status(self):
-      return self.status
+    if status == 'error' and message:
+      _logger.error('Scale Error: ' + message)
+    elif status == 'disconnected' and message:
+      _logger.warning('Scale Device Disconnected: ' + message)
 
-    def set_tare(self):
-      if self.lastreading is not None:
-        self.tare = self.lastreading.weight
+  def run(self):
 
-    def clear_tare(self):
-      self.tare = 0
+    scalepos = None
 
-    def get_weight(self):
-      self.lockedstart()
-      return self.lastreading
+    if not scale: #scale refers to the module here
+      _logger.error('Scale not initialized, please verify system dependencies.')
+      return
 
-    def set_status(self, status, message = None):
-      _logger.info(status+ ' : ' + (message or 'no message'))
-      if status == self.status['status']:
-        if message != None and (len(self.status['messages']) == 0 or message != self.status['messages'][-1]):
-            self.status['messages'].append(message)
-      else:
-        self.status['status'] = status
-        if message:
-          self.status['messages'] = [message]
-        else:
-          self.status['messages'] = []
+    while True:
+      try:
+        error = True
+        scalepos = self.get_scale()
 
-      if status == 'error' and message:
-        _logger.error('Scale Error: ' + message)
-      elif status == 'disconnected' and message:
-        _logger.warning('Scale Device Disconnected: ' + message)
-
-    def run(self):
-
-      scalepos = None
-
-      if not scale: #scale refers to the module here
-        _logger.error('Scale not initialized, please verify system dependencies.')
-        return
-
-      while True:
-        try:
-          error = True
-          scalepos = self.get_scale()
-
-          if scalepos == None:
-            error = False
-            time.sleep(5)
-            continue
-
-          self.lastreading = scalepos.weigh()
-          time.sleep(0.5)
-
+        if scalepos == None:
           error = False
+          time.sleep(5)
+          continue
 
-        except Exception as e:
-          self.set_status('error', str(e))
-          errmsg = str(e) + '\n' + '-'*60 + '\n' + traceback.format_exc() + '-'*60 + '\n'
-          _logger.error(errmsg)
+        self.lastreading = scalepos.weigh()
+        time.sleep(0.5)
+
+        error = False
+
+      except Exception as e:
+        self.set_status('error', str(e))
+        errmsg = str(e) + '\n' + '-'*60 + '\n' + traceback.format_exc() + '-'*60 + '\n'
+        _logger.error(errmsg)
 
 driver = ScaleDriver()
 hw_proxy.drivers['scale'] = driver
