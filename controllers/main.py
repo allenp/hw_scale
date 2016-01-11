@@ -71,7 +71,7 @@ class ScaleDriver(Thread):
 
   def lockedstart(self):
     with self.lock:
-      if not self.isAlive():
+      if not self.is_alive():
         self.daemon = True
         self.start()
 
@@ -124,14 +124,17 @@ class ScaleDriver(Thread):
       return
 
     while True:
+
       try:
         error = True
-        scalepos = self.get_scale()
 
         if scalepos == None:
-          error = False
-          time.sleep(5)
-          continue
+          scalepos = self.get_scale()
+          if scalepos == None:
+            error = False
+            time.sleep(5)
+            continue
+          scalepos.connect()
 
         self.lastreading = scalepos.weigh()
         time.sleep(0.5)
@@ -142,8 +145,12 @@ class ScaleDriver(Thread):
         self.set_status('error', str(e))
         errmsg = str(e) + '\n' + '-'*60 + '\n' + traceback.format_exc() + '-'*60 + '\n'
         _logger.error(errmsg)
+      finally:
+        if scalepos:
+          scalepos.disconnect()
 
 driver = ScaleDriver()
+driver.lockedstart()
 hw_proxy.drivers['scale'] = driver
 
 class ScaleProxy(hw_proxy.Proxy):

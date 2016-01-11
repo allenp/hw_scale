@@ -111,6 +111,10 @@ class Scale(object):
 
         return True
 
+    def close(self):
+      if self.disconnect():
+        self._device = None
+
     def disconnect(self):
         """Frees the scale up for other programs/objects to use."""
         if not self.device:
