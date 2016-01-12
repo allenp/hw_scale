@@ -15,7 +15,6 @@ except ImportError:
   scalepos = scale = None
 
 from threading import Thread, Lock
-from Queue import Queue, Empty
 
 try:
   import usb.core
@@ -30,7 +29,6 @@ class ScaleDriver(Thread):
 
     Thread.__init__(self)
 
-    self.queue = Queue()
     self.lock = Lock()
     self.tare = 0
     self.lastreading = None
@@ -95,7 +93,6 @@ class ScaleDriver(Thread):
     self.tare = 0
 
   def get_weight(self):
-    self.lockedstart()
     return self.lastreading
 
   def set_status(self, status, message = None):
