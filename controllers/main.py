@@ -75,7 +75,9 @@ class ScaleDriver(Thread):
         self.start()
 
   def get_scale(self):
+
     scales = self.connected_usb_devices()
+
     if len(scales) > 0:
       self.set_status('connected', 'Connected to ' + scales[0]['name'])
       return Scale(None, scales[0]['vendor'], scales[0]['product'])
@@ -126,14 +128,14 @@ class ScaleDriver(Thread):
       try:
         error = True
 
-        scalepos = self.get_scale()
-
         if scalepos == None:
-            error = False
+          scalepos = self.get_scale()
+          scalepos.connect()
+
+        #if still none, we found no scale. Sleep for a while then check again
+        if scalepos == None:
             time.sleep(5)
             continue
-        else:
-          scalepos.connect()
 
         self.lastreading = scalepos.weigh()
 
@@ -145,9 +147,11 @@ class ScaleDriver(Thread):
         self.set_status('error', str(e))
         errmsg = str(e) + '\n' + '-'*60 + '\n' + traceback.format_exc() + '-'*60 + '\n'
         _logger.error(errmsg)
+
       finally:
         if scalepos:
           scalepos.disconnect()
+          scalepos = None
 
 driver = ScaleDriver()
 driver.lockedstart()
