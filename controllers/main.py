@@ -68,6 +68,7 @@ class ScaleDriver(Thread):
     return connected
 
   def lockedstart(self):
+    _logger.error("Starting thread with lockedstart()")
     with self.lock:
       if not self.is_alive():
         self.daemon = True
@@ -125,15 +126,17 @@ class ScaleDriver(Thread):
       try:
         error = True
 
+        scalepos = self.get_scale()
+
         if scalepos == None:
-          scalepos = self.get_scale()
-          if scalepos == None:
             error = False
             time.sleep(5)
             continue
+        else:
           scalepos.connect()
 
         self.lastreading = scalepos.weigh()
+
         time.sleep(0.5)
 
         error = False
